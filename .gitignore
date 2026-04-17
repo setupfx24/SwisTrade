@@ -25,14 +25,14 @@ dist-ssr
 
 # Environment files
 .env
-backend/.env
-admin/.env
+server/.env
+client/admin/.env
 
 # Python
 __pycache__
 *.pyc
-backend/venv
-backend/.venv
+server/venv
+server/.venv
 
 # Claude
 .claude

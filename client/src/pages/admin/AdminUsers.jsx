@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminApi } from '../../services/admin'
+import api from '../../services/api'
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -97,6 +98,43 @@ export default function AdminUsers() {
                         onClick={() => handleAction(selectedUser.user.id, 'reject_kyc', prompt('Rejection reason:'))}>REJECT KYC</button>
                     </>
                   )}
+
+                  {/* Fund Actions */}
+                  <button className="dash-btn-sm" style={{ color: 'var(--accent)', borderColor: 'var(--accent)' }}
+                    onClick={async () => {
+                      const amt = prompt('Amount to ADD to wallet:')
+                      if (!amt) return
+                      const note = prompt('Note (optional):') || ''
+                      try {
+                        const { data } = await api.post('/admin/users/add-fund', { user_id: selectedUser.user.id, amount: parseFloat(amt), note })
+                        setMessage(data.message)
+                        viewUser(selectedUser.user.id)
+                      } catch (err) { setMessage(err.response?.data?.detail || 'Failed') }
+                    }}>+ ADD FUND</button>
+
+                  <button className="dash-btn-sm dash-btn-sm--red"
+                    onClick={async () => {
+                      const amt = prompt('Amount to DEDUCT from wallet:')
+                      if (!amt) return
+                      const note = prompt('Reason (optional):') || ''
+                      try {
+                        const { data } = await api.post('/admin/users/deduct-fund', { user_id: selectedUser.user.id, amount: parseFloat(amt), note })
+                        setMessage(data.message)
+                        viewUser(selectedUser.user.id)
+                      } catch (err) { setMessage(err.response?.data?.detail || 'Failed') }
+                    }}>- DEDUCT FUND</button>
+
+                  <button className="dash-btn-sm" style={{ color: '#ffaa00', borderColor: '#ffaa00' }}
+                    onClick={async () => {
+                      if (!confirm(`Login as ${selectedUser.user.email}? This action is logged.`)) return
+                      try {
+                        const { data } = await api.post(`/admin/users/${selectedUser.user.id}/login-as`)
+                        // Open user dashboard in new tab with impersonation token
+                        const userUrl = `http://localhost:5173/dashboard?token=${data.access_token}`
+                        window.open(userUrl, '_blank')
+                        setMessage(`Logged in as ${selectedUser.user.email} in new tab`)
+                      } catch (err) { setMessage(err.response?.data?.detail || 'Failed') }
+                    }}>LOGIN AS USER</button>
                 </div>
 
                 {selectedUser.accounts.length > 0 && (

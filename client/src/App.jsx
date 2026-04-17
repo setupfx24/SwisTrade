@@ -1,0 +1,384 @@
+import { BrowserRouter, Routes, Route, useLocation, Navigate, Link, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { fetchCurrentUser } from './store/authSlice'
+import { restoreTokens } from './services/api'
+import { useAuth } from './hooks/useAuth'
+import './App.css'
+import Header from './components/Header'
+import Footer from './components/Footer'
+import MobileNav from './components/MobileNav'
+import ProtectedRoute from './components/ProtectedRoute'
+import DashboardLayout from './components/layout/DashboardLayout'
+import AdminNotificationBell from './components/admin/AdminNotificationBell'
+
+// User pages
+import Home from './pages/Home'
+import Features from './pages/Features'
+import Markets from './pages/Markets'
+import Reviews from './pages/Reviews'
+import Platforms from './pages/Platforms'
+import WhiteLabel from './pages/WhiteLabel'
+import About from './pages/About'
+import Contact from './pages/Contact'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
+import RiskDisclosure from './pages/RiskDisclosure'
+import SignIn from './pages/SignIn'
+import SignUp from './pages/SignUp'
+import DashboardHome from './pages/dashboard/DashboardHome'
+import Accounts from './pages/dashboard/Accounts'
+import WalletPage from './pages/dashboard/WalletPage'
+import Trading from './pages/dashboard/Trading'
+import Orders from './pages/dashboard/Orders'
+import PropChallenges from './pages/dashboard/PropChallenges'
+import CopyTrading from './pages/dashboard/CopyTrading'
+import AlgoBots from './pages/dashboard/AlgoBots'
+import Challenges from './pages/dashboard/Challenges'
+import Business from './pages/dashboard/Business'
+import Profile from './pages/dashboard/Profile'
+import AccountLogs from './pages/dashboard/AccountLogs'
+
+// Admin pages
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminUsers from './pages/admin/AdminUsers'
+import AdminTransactions from './pages/admin/AdminTransactions'
+import AdminTrades from './pages/admin/AdminTrades'
+import AdminRisk from './pages/admin/AdminRisk'
+import AdminInstruments from './pages/admin/AdminInstruments'
+import AdminCharges from './pages/admin/AdminCharges'
+import AdminProp from './pages/admin/AdminProp'
+import AdminCopyTrading from './pages/admin/AdminCopyTrading'
+import AdminChallenges from './pages/admin/AdminChallenges'
+import AdminIB from './pages/admin/AdminIB'
+import AdminAudit from './pages/admin/AdminAudit'
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
+
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
+
+function SessionRestore({ children }) {
+  const dispatch = useDispatch()
+  const { isAuthenticated } = useSelector((state) => state.auth)
+  const [checked, setChecked] = useState(false)
+
+  useEffect(() => {
+    if (isAuthenticated) { setChecked(true); return }
+    const { access } = restoreTokens()
+    if (access) {
+      dispatch(fetchCurrentUser()).finally(() => setChecked(true))
+    } else {
+      setChecked(true)
+    }
+  }, [])
+
+  if (!checked) {
+    return <div className="auth-loading"><div className="auth-loading__spinner" /></div>
+  }
+  return children
+}
+
+// ─── Marketing / Auth / Dashboard layouts ─────────────────────────────────────
+
+function MarketingLayout() {
+  return (
+    <>
+      <div className="noise-overlay" />
+      <div className="refraction-glow refraction-glow--hero" />
+      <div className="refraction-glow refraction-glow--mid" />
+      <ScrollToTop />
+      <Header />
+      <main style={{ position: 'relative', zIndex: 1 }}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/markets" element={<Markets />} />
+          <Route path="/reviews" element={<Reviews />} />
+          <Route path="/platforms" element={<Platforms />} />
+          <Route path="/white-label" element={<WhiteLabel />} />
+          <Route path="/partnerships" element={<WhiteLabel />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/risk-disclosure" element={<RiskDisclosure />} />
+        </Routes>
+      </main>
+      <Footer />
+      <MobileNav />
+    </>
+  )
+}
+
+function AuthLayout() {
+  return (
+    <>
+      <div className="noise-overlay" />
+      <ScrollToTop />
+      <Routes>
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
+      </Routes>
+    </>
+  )
+}
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+function AdminLogin() {
+  const { login, isLoading, error, clearAuthError, isAuthenticated, user } = useAuth()
+  const [loginError, setLoginError] = useState('')
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (isAuthenticated && user && (user.role === 'super_admin' || user.role === 'sub_admin')) {
+      navigate('/admin')
+    }
+  }, [isAuthenticated, user, navigate])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    clearAuthError()
+    setLoginError('')
+    const formData = new FormData(e.target)
+    const result = await login({ email: formData.get('email'), password: formData.get('password') })
+    if (result.error) {
+      setLoginError(result.payload || 'Login failed')
+    } else {
+      const u = result.payload?.user
+      if (u && u.role !== 'super_admin' && u.role !== 'sub_admin') {
+        setLoginError('Access denied. Admin credentials required.')
+      } else {
+        navigate('/admin')
+      }
+    }
+  }
+
+  return (
+    <div className="admin-login">
+      <div className="admin-login__card">
+        <div className="admin-login__logo">
+          SWIS<span className="admin-login__logo-accent">TRADE</span>
+          <span className="admin-login__badge">ADMIN</span>
+        </div>
+        <h1 className="admin-login__title">ADMIN PANEL</h1>
+        <p className="admin-login__subtitle">Enter your admin credentials</p>
+        {(error || loginError) && <div className="auth-form__error">{loginError || error}</div>}
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="auth-form__group">
+            <label className="auth-form__label">EMAIL</label>
+            <input name="email" type="email" className="auth-form__input" placeholder="admin@swistrade.com" required autoComplete="email" />
+          </div>
+          <div className="auth-form__group">
+            <label className="auth-form__label">PASSWORD</label>
+            <input name="password" type="password" className="auth-form__input" placeholder="Admin password" required autoComplete="current-password" />
+          </div>
+          <button type="submit" className="laser-btn" style={{ width: '100%', background: '#ff5050', boxShadow: '0 0 20px rgba(255,50,50,0.3)' }} disabled={isLoading}>
+            {isLoading ? 'SIGNING IN...' : 'ADMIN SIGN IN'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function AdminProtected({ children }) {
+  const { isAuthenticated, user, isLoading } = useSelector((state) => state.auth)
+  if (isLoading) return <div className="auth-loading"><div className="auth-loading__spinner" /></div>
+  if (!isAuthenticated) return <Navigate to="/admin/login" replace />
+  if (user && user.role !== 'super_admin' && user.role !== 'sub_admin') return <Navigate to="/admin/login" replace />
+  return children
+}
+
+const svgIcon = (paths) => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{paths}</svg>
+)
+
+const icons = {
+  dashboard: svgIcon(<><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>),
+  users: svgIcon(<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></>),
+  transactions: svgIcon(<><circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M15 9.5c0-1.38-1.34-2.5-3-2.5s-3 1.12-3 2.5 1.34 2.5 3 2.5 3 1.12 3 2.5-1.34 2.5-3 2.5"/></>),
+  trades: svgIcon(<><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></>),
+  risk: svgIcon(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>),
+  instruments: svgIcon(<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>),
+  charges: svgIcon(<><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>),
+  prop: svgIcon(<><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></>),
+  copy: svgIcon(<><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></>),
+  challenges: svgIcon(<><path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z"/></>),
+  ib: svgIcon(<><circle cx="12" cy="5" r="3"/><line x1="12" y1="8" x2="12" y2="14"/><circle cx="6" cy="19" r="3"/><circle cx="18" cy="19" r="3"/><line x1="12" y1="14" x2="6" y2="16"/><line x1="12" y1="14" x2="18" y2="16"/></>),
+  audit: svgIcon(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>),
+  logout: svgIcon(<><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>),
+}
+
+const adminNavItems = [
+  { path: '/admin', label: 'DASHBOARD', icon: 'dashboard' },
+  { path: '/admin/users', label: 'USERS', icon: 'users' },
+  { path: '/admin/transactions', label: 'DEPOSITS / WITHDRAWALS', icon: 'transactions' },
+  { path: '/admin/trades', label: 'TRADES', icon: 'trades' },
+  { path: '/admin/risk', label: 'RISK', icon: 'risk' },
+  { path: '/admin/instruments', label: 'INSTRUMENTS', icon: 'instruments' },
+  { path: '/admin/charges', label: 'CHARGES', icon: 'charges' },
+  { path: '/admin/prop', label: 'PROP SETTINGS', icon: 'prop' },
+  { path: '/admin/copy-trading', label: 'COPY / PAMM', icon: 'copy' },
+  { path: '/admin/challenges', label: 'CHALLENGES', icon: 'challenges' },
+  { path: '/admin/ib', label: 'IB SETTINGS', icon: 'ib' },
+  { path: '/admin/audit', label: 'AUDIT LOG', icon: 'audit' },
+]
+
+function AdminLayout() {
+  const { user, logout } = useAuth()
+  const location = useLocation()
+  const [collapsed, setCollapsed] = useState(false)
+
+  const handleLogout = async () => {
+    await logout()
+    window.location.href = '/admin/login'
+  }
+
+  return (
+    <div className={`dash ${collapsed ? 'dash--collapsed' : ''}`}>
+      <aside className="dash__sidebar">
+        <div className="dash__sidebar-header">
+          <span className="dash__logo">
+            {collapsed ? (
+              <img src="/favicon.svg" alt="ST" width="28" height="28" style={{ borderRadius: 6 }} />
+            ) : (
+              <>SWIS<span className="dash__logo-accent">TRADE</span><span className="dash__admin-badge">ADMIN</span></>
+            )}
+          </span>
+          <button className="dash__collapse-btn" onClick={() => setCollapsed(!collapsed)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {collapsed ? <polyline points="9 18 15 12 9 6"/> : <polyline points="15 18 9 12 15 6"/>}
+            </svg>
+          </button>
+        </div>
+        <nav className="dash__nav">
+          {adminNavItems.map((item) => (
+            <Link key={item.path} to={item.path} title={item.label}
+              className={`dash__nav-item ${location.pathname === item.path ? 'dash__nav-item--active' : ''}`}>
+              <span className="dash__nav-icon">{icons[item.icon]}</span>
+              {!collapsed && <span className="dash__nav-label">{item.label}</span>}
+            </Link>
+          ))}
+        </nav>
+        <div className="dash__sidebar-footer">
+          <button className="dash__nav-item dash__logout-btn" onClick={handleLogout}>
+            <span className="dash__nav-icon">{icons.logout}</span>
+            {!collapsed && <span className="dash__nav-label">LOGOUT</span>}
+          </button>
+        </div>
+      </aside>
+      <div className="dash__main">
+        <header className="dash__topbar">
+          <div>
+            <h1 className="dash__page-title">
+              {adminNavItems.find((i) => i.path === location.pathname)?.label || 'ADMIN'}
+            </h1>
+          </div>
+          <AdminNotificationBell />
+          <div className="dash__user-info">
+            <div className="dash__user-avatar">{user?.name?.charAt(0) || 'A'}</div>
+            <div className="dash__user-details">
+              <span className="dash__user-name">{user?.name || 'Admin'}</span>
+              <span className="dash__user-role">{user?.role?.toUpperCase()}</span>
+            </div>
+          </div>
+        </header>
+        <main className="dash__content"><Outlet /></main>
+      </div>
+    </div>
+  )
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+
+function AppRoutes() {
+  const { pathname } = useLocation()
+  const isAuth = pathname === '/signin' || pathname === '/signup'
+  const isDashboard = pathname.startsWith('/dashboard')
+  const isTrading = pathname.startsWith('/trade')
+  const isAdmin = pathname.startsWith('/admin')
+
+  if (isAuth) return <AuthLayout />
+
+  if (isTrading) {
+    return (
+      <>
+        <ScrollToTop />
+        <ProtectedRoute>
+          <Routes>
+            <Route path="/trade/:accountId" element={<Trading />} />
+          </Routes>
+        </ProtectedRoute>
+      </>
+    )
+  }
+
+  if (isDashboard) {
+    return (
+      <>
+        <div className="noise-overlay" />
+        <ScrollToTop />
+        <ProtectedRoute>
+          <Routes>
+            <Route element={<DashboardLayout />}>
+              <Route path="/dashboard" element={<DashboardHome />} />
+              <Route path="/dashboard/accounts" element={<Accounts />} />
+              <Route path="/dashboard/orders" element={<Orders />} />
+              <Route path="/dashboard/account-logs" element={<AccountLogs />} />
+              <Route path="/dashboard/wallet" element={<WalletPage />} />
+              <Route path="/dashboard/prop" element={<PropChallenges />} />
+              <Route path="/dashboard/copy-trading" element={<CopyTrading />} />
+              <Route path="/dashboard/bots" element={<AlgoBots />} />
+              <Route path="/dashboard/challenges" element={<Challenges />} />
+              <Route path="/dashboard/ib" element={<Business />} />
+              <Route path="/dashboard/profile" element={<Profile />} />
+            </Route>
+          </Routes>
+        </ProtectedRoute>
+      </>
+    )
+  }
+
+  if (isAdmin) {
+    return (
+      <>
+        <ScrollToTop />
+        <Routes>
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route element={<AdminProtected><AdminLayout /></AdminProtected>}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/transactions" element={<AdminTransactions />} />
+            <Route path="/admin/trades" element={<AdminTrades />} />
+            <Route path="/admin/risk" element={<AdminRisk />} />
+            <Route path="/admin/instruments" element={<AdminInstruments />} />
+            <Route path="/admin/charges" element={<AdminCharges />} />
+            <Route path="/admin/prop" element={<AdminProp />} />
+            <Route path="/admin/copy-trading" element={<AdminCopyTrading />} />
+            <Route path="/admin/challenges" element={<AdminChallenges />} />
+            <Route path="/admin/ib" element={<AdminIB />} />
+            <Route path="/admin/audit" element={<AdminAudit />} />
+          </Route>
+          <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
+        </Routes>
+      </>
+    )
+  }
+
+  return <MarketingLayout />
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <SessionRestore>
+        <AppRoutes />
+      </SessionRestore>
+    </BrowserRouter>
+  )
+}
