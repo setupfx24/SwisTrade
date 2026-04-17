@@ -1,0 +1,33 @@
+# Environment — NEVER commit secrets
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Uploads (user data)
+uploads/kyc/*
+uploads/profiles/*
+!uploads/kyc/.gitkeep
+!uploads/profiles/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
